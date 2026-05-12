@@ -1,93 +1,277 @@
-<!-- README.md -->
-<!-- This is what people see when they visit your GitHub repository -->
-<!-- A great README is the difference between 0 stars and 500 stars -->
-
 <div align="center">
 
-# 🛡️ DevSecOps Pipeline Orchestrator
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=28&duration=3000&pause=1000&color=00D9FF&center=true&vCenter=true&width=600&lines=🛡️+Sentinel+AI;DevSecOps+Pipeline+Orchestrator;Security+%2B+AI+%2B+Automation" alt="Sentinel AI"/>
 
-**Automated security scanning pipeline with AI-powered triage and real-time dashboard**
+<br/>
 
-[![Security Pipeline](https://github.com/yourusername/devsecops-pipeline-orchestrator/actions/workflows/security-pipeline.yml/badge.svg)](https://github.com/yourusername/devsecops-pipeline-orchestrator/actions)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg)](https://fastapi.tiangolo.com)
-[![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](https://docker.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+**AI-powered DevSecOps security pipeline with local Ollama AI triage and real-time dashboard**
 
-[Demo](#demo) · [Quick Start](#quick-start) · [Architecture](#architecture) · [Documentation](#documentation)
+<br/>
+
+[![Security Pipeline](https://github.com/MuhammadAliRaza-DevSecOps/sentinel-ai/actions/workflows/security-pipeline.yml/badge.svg)](https://github.com/MuhammadAliRaza-DevSecOps/sentinel-ai/actions)
+[![CodeQL](https://github.com/MuhammadAliRaza-DevSecOps/sentinel-ai/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/MuhammadAliRaza-DevSecOps/sentinel-ai/actions)
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat&logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker&logoColor=white)
+![Ollama](https://img.shields.io/badge/AI-Ollama%20phi3:mini-FF6B35?style=flat&logo=ollama&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)
+![PRs](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=flat)
+
+<br/>
+
+[🚀 Quick Start](#-quick-start) · [🏗️ Architecture](#️-architecture) · [✨ Features](#-features) · [📊 Dashboard](#-dashboard) · [🤝 Contributing](#-contributing)
 
 </div>
 
 ---
 
-## Problem Statement
+## 🎯 Problem Statement
 
-Security vulnerabilities cost organizations an average of **$4.45M per breach** (IBM 2023). 
-Most breaches are preventable — they exploit vulnerabilities that static analysis would catch. 
-Yet **73% of organizations** run security scans manually, late in the development cycle when fixes are 10× more expensive.
+> Security vulnerabilities cost organizations **$4.45M per breach** (IBM 2023).
+> Most breaches are **preventable** — caught by static analysis.
+> Yet **73% of organizations** scan manually, late in the cycle when fixes are **10× more expensive**.
 
-## Solution
+---
 
-DevSecOps Pipeline Orchestrator shifts security **left** — catching vulnerabilities at `git push` time, 
-not after deployment. It combines 5 scanning tools, AI-powered triage, and a real-time dashboard.
+## 💡 Solution
 
-## Features
+**Sentinel AI** shifts security **left** — catching vulnerabilities at `git push` time, not after deployment.
+Developer pushes code
+↓
+GitHub Actions triggers automatically
+↓
+5 scanners run in parallel
+↓
+Ollama AI triages findings locally
+↓
+Pass ✅ or Block ❌ the merge
+↓
+Dashboard shows trends
+
+---
+
+## ✨ Features
 
 | Feature | Tool | What it catches |
 |---------|------|-----------------|
-| Secret Detection | Gitleaks + trufflehog | API keys, passwords, tokens in code/history |
-| SAST | Semgrep + Bandit | SQLi, XSS, command injection, insecure patterns |
-| SCA | Safety + pip-audit | CVEs in Python dependencies |
-| Container Security | Trivy | OS and package vulnerabilities in Docker images |
-| DAST | OWASP ZAP | Runtime vulnerabilities in running applications |
+| 🔑 Secret Detection | Gitleaks + trufflehog | API keys, passwords, tokens |
+| 🔍 SAST | Semgrep + Bandit | SQLi, XSS, command injection |
+| 📦 SCA | Safety + pip-audit | CVEs in dependencies |
+| 🐳 Container Security | Trivy | OS + package vulnerabilities |
+| 🌐 DAST | OWASP ZAP | Runtime vulnerabilities |
+| 🤖 AI Triage | Ollama phi3:mini | False positive reduction |
+| 📊 Dashboard | Streamlit | Real-time trends + reports |
+| 📧 Notifications | SMTP + Slack | Instant alerts |
 
-## Architecture
+---
 
-![Architecture Diagram](docs/architecture.png)
+## 🏗️ Architecture
+┌─────────────────────────────────────────────────────┐
+│                   Developer Machine                  │
+│  ┌──────────┐    git push    ┌──────────────────┐   │
+│  │   Code   │ ─────────────► │   GitHub Repo    │   │
+│  └──────────┘                └────────┬─────────┘   │
+└───────────────────────────────────────┼─────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────┐
+│              GitHub Actions Pipeline                 │
+│                                                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
+│  │  Secret  │  │   SAST   │  │       SCA        │  │
+│  │  Scan   │  │ Semgrep  │  │ Safety+pip-audit  │  │
+│  │Gitleaks │  │ +Bandit  │  │                  │  │
+│  └────┬─────┘  └────┬─────┘  └────────┬─────────┘  │
+│       │             │                  │             │
+│  ┌────┴─────────────┴──────────────────┴──────────┐ │
+│  │           Scoring Engine (CVSS)                │ │
+│  └────────────────────┬───────────────────────────┘ │
+│                       │                             │
+│  ┌────────────────────▼───────────────────────────┐ │
+│  │         Ollama AI Triage (phi3:mini)           │ │
+│  │         Local — No data leaves machine         │ │
+│  └────────────────────┬───────────────────────────┘ │
+│                       │                             │
+│            ┌──────────┴──────────┐                  │
+│            ▼                     ▼                  │
+│      ┌──────────┐         ┌──────────┐              │
+│      │  PASS ✅  │         │  FAIL ❌  │              │
+│      │  Merge   │         │  Block   │              │
+│      └──────────┘         └──────────┘              │
+└─────────────────────────────────────────────────────┘
+│
+▼
+┌─────────────────────────────────────────────────────┐
+│                  Local Services                      │
+│                                                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
+│  │ FastAPI  │  │PostgreSQL│  │    Streamlit     │  │
+│  │  :8000  │  │  :5432   │  │   Dashboard      │  │
+│  └──────────┘  └──────────┘  │     :8501        │  │
+│                               └──────────────────┘  │
+└─────────────────────────────────────────────────────┘
 
-## Quick Start
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/devsecops-pipeline-orchestrator
-cd devsecops-pipeline-orchestrator
+# Required
+Python 3.11+
+Docker Desktop
+Git
+Ollama (https://ollama.ai)
 
-# Copy environment file and configure
+# Install Ollama model
+ollama pull phi3:mini
+```
+
+### Installation
+
+```bash
+# 1. Clone karo
+git clone https://github.com/MuhammadAliRaza-DevSecOps/sentinel-ai.git
+cd sentinel-ai
+
+# 2. Environment setup
 cp .env.example .env
-# Edit .env with your settings
+# .env mein apni values fill karo
 
-# Start everything with Docker Compose
+# 3. Virtual environment
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+
+# 4. Dependencies
+pip install -r requirements.txt
+
+# 5. Docker se start karo
 docker-compose up -d --build
-
-# Open the dashboard
-open http://localhost:8501
 ```
 
-## GitHub Actions Integration
+### Access
 
-Add this to any repository to enable automated scanning:
+| Service | URL |
+|---------|-----|
+| 📊 Dashboard | http://localhost:8501 |
+| 🔌 API Docs | http://localhost:8000/docs |
+| ❤️ Health Check | http://localhost:8000/health |
 
-```yaml
-# .github/workflows/security.yml
-jobs:
-  security:
-    uses: yourusername/devsecops-pipeline-orchestrator/.github/workflows/security-pipeline.yml@main
-    secrets: inherit
+---
+
+## 📊 Dashboard
+┌─────────────────────────────────────────┐
+│  🛡️ Sentinel AI Dashboard               │
+├──────────┬──────────┬──────────┬────────┤
+│ Total    │ Passed   │ Critical │  High  │
+│   47     │  38 (80%)│    2     │   8    │
+├──────────┴──────────┴──────────┴────────┤
+│  [Pie Chart]    [Trend Line Chart]      │
+├─────────────────────────────────────────┤
+│  Recent Findings Table                  │
+│  ✅ main · sast · C:0 H:2 · 2025-05-12 │
+│  ❌ feat · full · C:1 H:3 · 2025-05-11 │
+└─────────────────────────────────────────┘
+
+---
+
+## 🔧 Tech Stack
+Backend    │ FastAPI + PostgreSQL + Redis + Celery
+Frontend   │ Streamlit + Plotly
+AI         │ Ollama phi3:mini (100% local)
+Scanners   │ Semgrep, Bandit, Trivy, Gitleaks, OWASP ZAP
+CI/CD      │ GitHub Actions
+Container  │ Docker + Docker Compose
+
+---
+
+## 📁 Project Structure
+sentinel-ai/
+├── .github/
+│   ├── workflows/
+│   │   ├── security-pipeline.yml   # Main CI/CD
+│   │   └── codeql-analysis.yml     # CodeQL scan
+│   └── ISSUE_TEMPLATE/
+├── scanner/
+│   ├── sast_scanner.py             # Semgrep + Bandit
+│   ├── secret_scanner.py           # Gitleaks + trufflehog
+│   ├── sca_scanner.py              # Safety + pip-audit
+│   ├── container_scanner.py        # Trivy
+│   ├── dast_scanner.py             # OWASP ZAP
+│   ├── scoring_engine.py           # CVSS scoring
+│   └── ai_triage.py                # Ollama AI
+├── api/
+│   ├── main.py                     # FastAPI app
+│   ├── database.py                 # PostgreSQL
+│   └── routes/
+├── dashboard/
+│   ├── app.py                      # Streamlit main
+│   └── pages/
+├── notifications/
+├── reports/
+├── tests/
+├── docker/
+├── k8s/
+├── docker-compose.yml
+├── requirements.txt
+└── .env.example
+
+---
+
+## 🧪 Testing
+
+```bash
+# All tests run karo
+pytest tests/ -v
+
+# Coverage check
+pytest tests/ --cov=scanner --cov-report=html
+
+# Local scan run karo
+./scripts/run_local_scan.sh .
 ```
 
-## Roadmap
+---
 
-- [x] SAST scanning (Semgrep + Bandit)
-- [x] Container scanning (Trivy)
-- [x] Secret detection (Gitleaks)
-- [x] Streamlit dashboard
-- [x] GitHub Actions pipeline
-- [ ] AI-powered false positive reduction
-- [ ] Kubernetes operator
-- [ ] Slack/Teams integration
-- [ ] SBOM generation
+## 🤝 Contributing
 
-## License
+Contributions welcome! Dekho [CONTRIBUTING.md](CONTRIBUTING.md)
 
-MIT — see [LICENSE](LICENSE)
+```bash
+# Feature branch banao
+git checkout -b feat/your-feature
+
+# Changes karo aur commit karo
+git commit -m "feat: add your feature"
+
+# Push karo
+git push origin feat/your-feature
+
+# Pull Request kholo
+```
+
+---
+
+## 📄 License
+
+MIT License — dekho [LICENSE](LICENSE)
+
+---
+
+## 👨‍💻 Author
+
+**Muhammad Ali Raza**
+
+[![GitHub](https://img.shields.io/badge/GitHub-MuhammadAliRaza--DevSecOps-181717?style=flat&logo=github)](https://github.com/MuhammadAliRaza-DevSecOps)
+
+---
+
+<div align="center">
+
+**⭐ Agar project pasand aaya to star zaroor dein!**
+
+Made with ❤️ for the cybersecurity community
+
+</div>
