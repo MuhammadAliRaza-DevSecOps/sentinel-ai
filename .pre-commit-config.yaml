@@ -1,0 +1,69 @@
+# .pre-commit-config.yaml
+# Pre-commit hooks — git commit se pehle automatic checks
+# Install: pip install pre-commit && pre-commit install
+# Phir har commit pe yeh automatically chalega
+
+repos:
+  # ─────────────────────────────────────────────
+  # Basic file checks
+  # ─────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace        # Extra spaces remove karo
+      - id: end-of-file-fixer          # File ke end mein newline ensure karo
+      - id: check-yaml                  # YAML syntax check
+      - id: check-json                  # JSON syntax check
+      - id: check-merge-conflict        # Merge conflict markers check
+      - id: detect-private-key          # Private keys detect karo
+      - id: check-added-large-files     # 500KB+ files block karo
+        args: ["--maxkb=500"]
+      - id: no-commit-to-branch         # main branch pe direct commit block
+        args: ["--branch", "main"]
+
+  # ─────────────────────────────────────────────
+  # Secret Detection
+  # ─────────────────────────────────────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        name: "🔑 Gitleaks — Secret Detection"
+
+  # ─────────────────────────────────────────────
+  # Python Code Quality
+  # ─────────────────────────────────────────────
+  - repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+      - id: black
+        name: "🐍 Black — Python Formatter"
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: "📦 isort — Import Sorter"
+        args: ["--profile", "black"]
+
+  # ─────────────────────────────────────────────
+  # Security
+  # ─────────────────────────────────────────────
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        name: "🔒 Bandit — Security Linter"
+        args: ["-r", "-ll"]    # -ll = only medium and high
+
+  # ─────────────────────────────────────────────
+  # Commit message format
+  # ─────────────────────────────────────────────
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.2.0
+    hooks:
+      - id: conventional-pre-commit
+        name: "✅ Conventional Commits"
+        stages: [commit-msg]
+        args: [feat, fix, docs, style, refactor, test, chore, security]

@@ -1,0 +1,348 @@
+# .github/workflows/security-pipeline.yml
+# This is the heart of the project — the automated CI/CD pipeline
+# Every time someone pushes code or opens a PR, GitHub runs this automatically
+
+name: 🔐 DevSecOps Security Pipeline
+
+# WHEN does this pipeline run?
+on:
+  push:
+    branches:
+      - main        # When code is pushed to main branch
+      - develop     # When code is pushed to develop branch
+  pull_request:
+    branches:
+      - main        # When a PR is opened targeting main
+  workflow_dispatch:  # Allow manual triggering from GitHub UI
+
+# Environment variables available to all jobs
+env:
+  PYTHON_VERSION: "3.11"
+  # We use secrets (set in GitHub → Settings → Secrets) for sensitive values
+  # ${{ secrets.SLACK_WEBHOOK }} reads from GitHub Secrets — never hardcode these
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1: Secret Scanning
+  # Checks for hardcoded API keys, passwords, tokens
+  # ─────────────────────────────────────────────
+  secret-scan:
+    name: 🔑 Secret Detection
+    runs-on: ubuntu-latest    # Run on GitHub's Ubuntu Linux virtual machine
+    
+    steps:
+      # Step 1: Get the code
+      # actions/checkout downloads your repository to the runner
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # fetch ALL history — Gitleaks needs it to scan all commits
+      
+      # Step 2: Run Gitleaks
+      # Gitleaks scans for secrets in git history and current files
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # GitHub provides this automatically
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # Only needed for private repos
+      
+      # Step 3: Upload results as artifacts
+      # Artifacts are files you save from a workflow run — you can download them later
+      - name: Upload Gitleaks report
+        uses: actions/upload-artifact@v4
+        if: always()    # Upload even if the scan fails (so we can see what was found)
+        with:
+          name: gitleaks-report
+          path: results.sarif    # Gitleaks outputs in SARIF format
+
+  # ─────────────────────────────────────────────
+  # JOB 2: SAST — Static Code Analysis
+  # ─────────────────────────────────────────────
+  sast-scan:
+    name: 🔍 SAST Scan
+    runs-on: ubuntu-latest
+    needs: secret-scan      # Only run if secret-scan passed
+    # "needs" creates a dependency — jobs run in order, not in parallel
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Set up Python so we can run our scanner scripts
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      # Cache pip packages — speeds up subsequent runs
+      # Without caching, pip downloads everything fresh every time (slow)
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          # Cache key is based on requirements.txt hash
+          # If requirements.txt changes, cache is invalidated
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+      
+      - name: Install dependencies
+        run: |
+          pip install bandit semgrep
+          pip install -r requirements.txt
+      
+      # Run Semgrep with multiple rule sets
+      - name: Run Semgrep SAST
+        run: |
+          semgrep \
+            --config=p/python \
+            --config=p/security-audit \
+            --config=p/owasp-top-ten \
+            --json \
+            --output=semgrep-results.json \
+            . || true
+          # "|| true" means: even if semgrep exits with code 1 (findings found),
+          # continue the pipeline — we handle pass/fail in our scoring engine
+        
+      # Run Bandit specifically for Python security
+      - name: Run Bandit
+        run: |
+          bandit -r . -f json -o bandit-results.json -q || true
+      
+      # Run our custom scoring engine on the results
+      - name: Score and analyze findings
+        run: |
+          python scripts/analyze_sast_results.py \
+            --semgrep semgrep-results.json \
+            --bandit bandit-results.json \
+            --output sast-analysis.json
+      
+      # Save all results as downloadable artifacts
+      - name: Upload SAST results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sast-results
+          path: |
+            semgrep-results.json
+            bandit-results.json
+            sast-analysis.json
+
+  # ─────────────────────────────────────────────
+  # JOB 3: SCA — Software Composition Analysis
+  # Check for vulnerable dependencies
+  # ─────────────────────────────────────────────
+  sca-scan:
+    name: 📦 Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: secret-scan
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install safety
+        run: pip install safety pip-audit
+      
+      # safety checks your requirements.txt against a CVE database
+      - name: Run Safety check
+        run: |
+          safety check \
+            --file requirements.txt \
+            --json \
+            --output safety-results.json || true
+      
+      # pip-audit is Google's dependency auditor
+      - name: Run pip-audit
+        run: |
+          pip-audit \
+            --requirement requirements.txt \
+            --format json \
+            --output pip-audit-results.json || true
+      
+      - name: Upload SCA results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sca-results
+          path: |
+            safety-results.json
+            pip-audit-results.json
+
+  # ─────────────────────────────────────────────
+  # JOB 4: Container Scanning
+  # Scan Docker images for OS and package vulnerabilities
+  # ─────────────────────────────────────────────
+  container-scan:
+    name: 🐳 Container Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: sast-scan
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Build the Docker image so we can scan it
+      # We tag it "scan-target:latest" for easy reference
+      - name: Build Docker image
+        run: |
+          docker build -t scan-target:latest -f docker/Dockerfile .
+      
+      # Trivy is Aqua Security's open-source vulnerability scanner
+      # It scans the image for known CVEs in OS packages AND Python packages
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "scan-target:latest"
+          format: "json"
+          output: "trivy-results.json"
+          severity: "CRITICAL,HIGH,MEDIUM"  # Only report these severities
+          exit-code: "0"  # Don't fail the job — we handle this ourselves
+      
+      # Also scan the Dockerfile itself for misconfigurations
+      - name: Scan Dockerfile configuration
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "config"
+          scan-ref: "docker/Dockerfile"
+          format: "json"
+          output: "dockerfile-scan.json"
+          exit-code: "0"
+      
+      - name: Upload container scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-scan-results
+          path: |
+            trivy-results.json
+            dockerfile-scan.json
+
+  # ─────────────────────────────────────────────
+  # JOB 5: Aggregate Results + Pass/Fail Gate
+  # Combines all findings and decides if pipeline passes
+  # ─────────────────────────────────────────────
+  security-gate:
+    name: 🚦 Security Gate — Pass/Fail Decision
+    runs-on: ubuntu-latest
+    # This job runs AFTER all scans complete
+    needs: [secret-scan, sast-scan, sca-scan, container-scan]
+    # Run even if previous jobs failed (so we can still generate a report)
+    if: always()
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      
+      # Download ALL the scan result artifacts from previous jobs
+      - name: Download all scan results
+        uses: actions/download-artifact@v4
+        with:
+          path: scan-results/   # Download into this folder
+      
+      # Run our aggregation script
+      # This combines all findings, deduplicates, scores, and decides pass/fail
+      - name: Aggregate findings and make pass/fail decision
+        run: |
+          python scripts/aggregate_findings.py \
+            --results-dir scan-results/ \
+            --output final-report.json \
+            --fail-on-critical true \
+            --fail-on-high-count 5
+        id: security-gate   # Give this step an ID so we can reference its output
+      
+      # Generate human-readable reports
+      - name: Generate security report
+        run: |
+          python scripts/generate_report.py \
+            --input final-report.json \
+            --format markdown \
+            --output security-report.md
+          python scripts/generate_report.py \
+            --input final-report.json \
+            --format html \
+            --output security-report.html
+      
+      # Post results as a comment on the PR (if this is a PR build)
+      - name: Post PR comment with findings
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('security-report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔐 Security Scan Results\n\n${report}`
+            });
+      
+      # Send Slack notification
+      - name: Notify Slack
+        if: always()
+        run: |
+          python scripts/notify_slack.py \
+            --report final-report.json \
+            --webhook ${{ secrets.SLACK_WEBHOOK_URL }} \
+            --branch ${{ github.ref_name }} \
+            --commit ${{ github.sha }}
+      
+      # Save final report as artifact
+      - name: Upload final security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-security-report
+          path: |
+            final-report.json
+            security-report.md
+            security-report.html
+      
+      # THE CRITICAL STEP: Fail the pipeline if security gate says FAIL
+      # This prevents vulnerable code from being merged
+      - name: Enforce security gate
+        run: |
+          python scripts/enforce_gate.py --report final-report.json
+        # If this script exits with code 1, the job fails
+        # GitHub Actions fails the workflow and blocks the PR merge
+
+  # ─────────────────────────────────────────────
+  # JOB 6: Deploy to staging (only on main branch, only if security gate passes)
+  # ─────────────────────────────────────────────
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: security-gate
+    # Only deploy on pushes to main — not on PRs
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Build and push Docker image to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}    # Your GitHub username
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+      
+      - name: Deploy notification
+        run: echo "✅ Deployed ghcr.io/${{ github.repository }}:${{ github.sha }} to staging"

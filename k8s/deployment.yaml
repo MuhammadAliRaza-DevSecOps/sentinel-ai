@@ -1,0 +1,138 @@
+# k8s/deployment.yaml
+# Kubernetes Deployment — production pe scalable deployment
+# kubectl apply -f k8s/ se sab apply hoga
+
+---
+# API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devsecops-api
+  namespace: devsecops
+  labels:
+    app: devsecops-api
+    version: "1.0"
+spec:
+  replicas: 2          # 2 copies — high availability
+  selector:
+    matchLabels:
+      app: devsecops-api
+  template:
+    metadata:
+      labels:
+        app: devsecops-api
+    spec:
+      # Security context — non-root user
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: api
+          image: ghcr.io/yourusername/devsecops-pipeline-orchestrator:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+
+          # Environment variables from ConfigMap and Secrets
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: devsecops-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: devsecops-secrets
+                  key: redis-url
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: devsecops-secrets
+                  key: slack-webhook
+
+          # Resource limits — container zyada memory/CPU na khaye
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          # Liveness probe — container alive hai?
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Readiness probe — traffic receive karne ke liye ready?
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          # Container security
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Writable temp directory
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
+
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
+
+---
+# Dashboard Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devsecops-dashboard
+  namespace: devsecops
+  labels:
+    app: devsecops-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devsecops-dashboard
+  template:
+    metadata:
+      labels:
+        app: devsecops-dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: ghcr.io/yourusername/devsecops-pipeline-orchestrator:latest
+          command: ["streamlit", "run", "dashboard/app.py",
+                    "--server.port", "8501",
+                    "--server.address", "0.0.0.0"]
+          ports:
+            - containerPort: 8501
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          env:
+            - name: API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: devsecops-config
+                  key: api-url

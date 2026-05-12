@@ -1,0 +1,58 @@
+# docker/Dockerfile.scanner
+# Security tools ke saath specialized scanner image
+# Isme saare scanning tools pre-installed hain
+
+FROM python:3.11-slim
+
+LABEL maintainer="devsecops@yourdomain.com"
+LABEL description="Security scanner image with all tools"
+
+# System packages install karo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    curl \
+    git \
+    unzip \
+    gnupg \
+    apt-transport-https \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Trivy install karo
+RUN wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
+    | gpg --dearmor > /usr/share/keyrings/trivy.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] \
+    https://aquasecurity.github.io/trivy-repo/deb generic main" \
+    | tee /etc/apt/sources.list.d/trivy.list \
+    && apt-get update \
+    && apt-get install -y trivy \
+    && rm -rf /var/lib/apt/lists/*
+
+# Gitleaks install karo
+RUN GITLEAKS_VERSION="8.18.2" \
+    && wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+    -O /tmp/gitleaks.tar.gz \
+    && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks \
+    && rm /tmp/gitleaks.tar.gz \
+    && chmod +x /usr/local/bin/gitleaks
+
+WORKDIR /app
+
+# Python security tools
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+    semgrep \
+    bandit \
+    safety \
+    pip-audit \
+    trufflehog \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Application code copy
+COPY . .
+
+# Non-root user
+RUN useradd -r -s /bin/false scanner
+USER scanner
+
+CMD ["python", "-m", "scanner"]

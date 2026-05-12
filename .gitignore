@@ -1,0 +1,114 @@
+# ============================================
+# .gitignore — DevSecOps Pipeline Orchestrator
+# ============================================
+
+# ─────────────────────────────────────────────
+# MOST CRITICAL — SECRETS — KABHI PUSH MAT KARO
+# ─────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+secrets.json
+credentials.json
+
+# ─────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+pip-wheel-metadata/
+.installed.cfg
+
+# ─────────────────────────────────────────────
+# Testing
+# ─────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.coveragerc
+.tox/
+nosetests.xml
+test-results/
+
+# ─────────────────────────────────────────────
+# Scan Results — Generated Files
+# ─────────────────────────────────────────────
+scan_results/
+*.sarif
+*-results.json
+final-report.json
+security-report.md
+security-report.html
+gitleaks-report.json
+semgrep-results.json
+bandit-results.json
+trivy-results.json
+safety-results.json
+pip-audit-results.json
+reports/output/
+
+# ─────────────────────────────────────────────
+# Docker
+# ─────────────────────────────────────────────
+*.log
+docker-compose.override.yml
+
+# ─────────────────────────────────────────────
+# VS Code
+# ─────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+# Extensions list rakhna theek hai (team ke liye)
+# .vscode/extensions.json — push karo
+
+# ─────────────────────────────────────────────
+# OS Files
+# ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# ─────────────────────────────────────────────
+# Databases — Local
+# ─────────────────────────────────────────────
+*.sqlite3
+*.db
+
+# ─────────────────────────────────────────────
+# Temporary Files
+# ─────────────────────────────────────────────
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ─────────────────────────────────────────────
+# Ollama Models — Bohot bari hoti hain
+# ─────────────────────────────────────────────
+*.gguf
+*.bin
+models/

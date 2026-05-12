@@ -1,0 +1,24 @@
+# k8s/configmap.yaml
+# Non-secret configuration values
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devsecops-config
+  namespace: devsecops
+data:
+  api-url: "http://devsecops-api-svc:80"
+  log-level: "INFO"
+  max-scan-timeout: "300"
+  critical-fail-threshold: "1"
+  high-fail-threshold: "5"
+
+---
+# Namespace create karo pehle
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: devsecops
+  labels:
+    name: devsecops

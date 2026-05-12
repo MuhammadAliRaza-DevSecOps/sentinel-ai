@@ -1,0 +1,30 @@
+# Dockerfile.vulnerable
+# INTENTIONALLY VULNERABLE — sirf testing ke liye
+# Trivy aur container scanner in issues ko pakdega
+
+# ❌ Latest tag use karna — unpinned, unexpected changes aa sakte hain
+FROM python:latest
+
+# ❌ Root user se run karna — security risk
+# USER instruction nahi hai = root pe chalta hai
+
+# ❌ Sensitive info ENV mein
+ENV DATABASE_PASSWORD="supersecret123"
+ENV AWS_SECRET_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+ENV SECRET_KEY="hardcoded-secret-key-never-do-this"
+
+WORKDIR /app
+
+# ❌ Poora directory copy — unnecessary files bhi jaati hain
+COPY . .
+
+# ❌ pip upgrade nahi kiya, versions pin nahi ki
+RUN pip install flask requests
+
+# ❌ No HEALTHCHECK
+# ❌ Unnecessary port expose
+EXPOSE 22
+EXPOSE 8080
+EXPOSE 3306
+
+CMD ["python", "app.py"]

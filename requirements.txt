@@ -1,0 +1,29 @@
+# requirements.txt
+# Every line is a Python package this project needs
+# The version pins (==) ensure reproducible installs
+
+fastapi==0.111.0          # Web framework for our API modern, fast, auto-generates docs
+uvicorn==0.30.0           # ASGI server that runs FastAPI like Apache but for Python async
+pydantic==2.7.0           # Data validation ensures API inputs are correct types
+sqlalchemy==2.0.30        # ORM lets us talk to PostgreSQL using Python objects
+alembic==1.13.1           # Database migrations manage schema changes safely
+asyncpg==0.29.0           # Async PostgreSQL driver non-blocking database calls
+redis==5.0.4              # Redis client for caching scan results and job queues
+celery==5.4.0             # Task queue for running scans in background without blocking API
+streamlit==1.35.0         # Dashboard framework for building UI with pure Python
+plotly==5.22.0            # Interactive charts for dashboard
+pandas==2.2.2             # Data manipulation process scan results
+python-dotenv==1.0.1      # Load .env files keeps secrets out of code
+httpx==0.27.0             # Async HTTP client call external APIs
+slack-sdk==3.27.2         # Slack notifications
+openai==1.30.1            # AI triage of findings (optional)
+reportlab==4.2.0          # PDF report generation
+markdown==3.6             # Markdown report generation
+PyYAML==6.0.1             # Parse YAML config files
+rich==13.7.1              # Beautiful terminal output with colors
+loguru==0.7.2             # Better logging than Python's built-in
+pytest==8.2.0             # Testing framework
+pytest-asyncio==0.23.7    # Test async code
+httpx==0.27.0             # Test HTTP clients
+coverage==7.5.0           # Measure how much code your tests cover
+python-multipart==0.0.9   # Handle file uploads in FastAPI

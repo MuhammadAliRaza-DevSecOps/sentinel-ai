@@ -1,0 +1,64 @@
+# k8s/service.yaml
+# Kubernetes Services — pods ko network access deta hai
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devsecops-api-svc
+  namespace: devsecops
+spec:
+  selector:
+    app: devsecops-api
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP    # Sirf cluster ke andar accessible
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devsecops-dashboard-svc
+  namespace: devsecops
+spec:
+  selector:
+    app: devsecops-dashboard
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8501
+  type: ClusterIP
+
+---
+# Ingress — bahar se access ke liye
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: devsecops-ingress
+  namespace: devsecops
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  rules:
+    - host: devsecops.yourdomain.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: devsecops-api-svc
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: devsecops-dashboard-svc
+                port:
+                  number: 80

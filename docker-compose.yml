@@ -1,0 +1,138 @@
+# docker-compose.yml
+# Docker Compose lets you define and run multi-container applications
+# Instead of running 4 separate docker run commands, you run: docker-compose up
+# All containers run in the same network and can talk to each other by service name
+
+version: "3.9"
+
+services:
+  # ─────────────────────────────────────────────
+  # PostgreSQL — stores scan results and history
+  # ─────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine   # Use the official Postgres image (alpine = small)
+    container_name: devsecops_db
+    restart: unless-stopped     # Restart if it crashes, but not if you manually stop it
+    environment:
+      POSTGRES_DB: devsecops_db         # Database name to create on startup
+      POSTGRES_USER: postgres           # Username
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpassword}  # Password from .env or default
+    volumes:
+      # Named volume: data persists even after container is stopped/deleted
+      # Without this, all data is lost when the container restarts
+      - postgres_data:/var/lib/postgresql/data
+      # Mount init scripts — runs automatically on first startup
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"   # host_port:container_port — access db at localhost:5432
+    healthcheck:
+      # pg_isready checks if Postgres is accepting connections
+      test: ["CMD-SHELL", "pg_isready -U postgres -d devsecops_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # Redis — task queue and caching
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: devsecops_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-devredispass}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+
+  # ─────────────────────────────────────────────
+  # FastAPI — the backend API
+  # ─────────────────────────────────────────────
+  api:
+    build:
+      context: .              # Build context: the current directory
+      dockerfile: docker/Dockerfile   # Which Dockerfile to use
+    container_name: devsecops_api
+    restart: unless-stopped
+    # Load environment variables from .env file
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD:-devpassword}@db:5432/devsecops_db
+      # "db" = the service name above — Docker resolves it to the container's IP
+      REDIS_URL: redis://:${REDIS_PASSWORD:-devredispass}@redis:6379/0
+    ports:
+      - "8000:8000"
+    # Don't start until db and redis are healthy
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount source code — changes to Python files apply without rebuilding
+      # Only useful in development — remove in production
+      - ./:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─────────────────────────────────────────────
+  # Streamlit Dashboard
+  # ─────────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: devsecops_dashboard
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_URL: http://api:8000   # Talk to the API container by service name
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    # Override the CMD to run Streamlit instead of FastAPI
+    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+
+  # ─────────────────────────────────────────────
+  # Celery Worker — runs background scanning tasks
+  # ─────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: devsecops_worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD:-devpassword}@db:5432/devsecops_db
+      REDIS_URL: redis://:${REDIS_PASSWORD:-devredispass}@redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Start Celery worker instead of the API
+    command: celery -A api.tasks worker --loglevel=info --concurrency=4
+
+# ─────────────────────────────────────────────
+# Named volumes — data persists here
+# Docker manages these — stored in /var/lib/docker/volumes/
+# ─────────────────────────────────────────────
+volumes:
+  postgres_data:
+  redis_data:
+
+# ─────────────────────────────────────────────
+# Networks — all services on the same network can talk to each other
+# ─────────────────────────────────────────────
+networks:
+  default:
+    name: devsecops_network
